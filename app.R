@@ -10,6 +10,7 @@ library(openxlsx)
 library(shinyWidgets)
 library(rlang)
 library(nmecr)
+source("helper.R")
 
 # Define the UI of the application
 ui <- navbarPage("My App",
@@ -524,6 +525,10 @@ observeEvent(input$additional_vars, {
           add_lines(y = ~get(input$y_var), name = input$y_var, yaxis = "y1") %>%
           add_lines(y = ~predictions, name = "Predictions", yaxis = "y2") %>%
           layout(
+            title = "Performance Period",
+            xaxis = list(
+              title = input$time_var
+            ),
             yaxis = list(
               title = input$y_var,
               range = c(min_val, max_val),
@@ -552,6 +557,10 @@ observeEvent(input$additional_vars, {
           add_lines(y = ~get(input$y_var), name = input$y_var, yaxis = "y1") %>%
           add_lines(y = ~predictions, name = "Predictions", yaxis = "y2") %>%
           layout(
+            title = "Performance Period",
+            xaxis = list(
+              title = input$time_var
+            ),
             yaxis = list(
               title = input$y_var,
               range = c(min_val, max_val),
