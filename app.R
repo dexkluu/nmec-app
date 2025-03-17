@@ -491,8 +491,8 @@ observeEvent(input$additional_vars, {
     req(model_output())
     selected_model <- model_stats()[input$model_stats_table_rows_selected, "Model"]
     performance_predictions <- model_output()[[selected_model]]$performance_prediction
-    performance_predictions$date = date(performance_predictions$time)
-    performance_predictions$hour = hour(performance_predictions$time)
+    performance_predictions$date = date(performance_predictions[[input$time_var]])
+    performance_predictions$hour = hour(performance_predictions[[input$time_var]])
     performance_predictions = tibble(performance_predictions)
     y_var_sym = sym(input$y_var)
     df_react = reactive({
