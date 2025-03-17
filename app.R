@@ -290,6 +290,8 @@ server <- function(input, output, session) {
         summarise(across(all_of(c(input$primary_y_axes, input$secondary_y_axes, agg_x_col)), match.fun(aggregation_func), na.rm = TRUE)) %>%
         ungroup() %>%
         rename(!!datetime_col := temp_datetime)
+    } else {
+      df = df_orig
     }
     
     plot <- plot_ly(df, x = ~get(x_col))
