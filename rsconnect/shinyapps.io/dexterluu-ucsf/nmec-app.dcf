@@ -5,7 +5,7 @@ account: dexterluu-ucsf
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 14242139
-bundleId: 9958100
+bundleId: 9959224
 url: https://dexterluu-ucsf.shinyapps.io/nmec-app/
 version: 1
 asMultiple: FALSE
