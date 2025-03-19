@@ -10,3 +10,6 @@ I created the app in R using R Shiny and deployed it via Shiny Apps. The models 
 ## Author(s)
 
 * **Dexter Luu**
+<br>
+
+[Go back to the main project page](https://dexkluu.github.io/Dexter/)
