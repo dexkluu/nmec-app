@@ -9,6 +9,7 @@ library(plotly)
 library(openxlsx)
 library(shinyWidgets)
 library(rlang)
+library(shinyjs)
 library(nmecr)
 source("helper.R")
 
@@ -58,6 +59,7 @@ ui <- navbarPage("My App",
                           )
                  ),
                  tabPanel("Modeling",
+                          useShinyjs(),  # Initialize shinyjs
                           sidebarLayout(
                             sidebarPanel(
                               checkboxInput("dr_analysis", "Is this a demand response analysis?", value = FALSE),
