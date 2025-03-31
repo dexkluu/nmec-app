@@ -14,7 +14,7 @@ library(nmecr)
 source("helper.R")
 
 # Define the UI of the application
-ui <- navbarPage("My App",
+ui = navbarPage("My App",
                  tabPanel("Table Display",
                           sidebarLayout(
                             sidebarPanel(
@@ -102,60 +102,60 @@ ui <- navbarPage("My App",
                  )
 )
 # Define the server logic
-server <- function(input, output, session) {
-  data <- reactiveVal(NULL)  # Reactive value to store data
-  history <- reactiveValues(states = list())  # Reactive values to store history of data states
+server = function(input, output, session) {
+  data = reactiveVal(NULL)  # Reactive value to store data
+  history = reactiveValues(states = list())  # Reactive values to store history of data states
   
   # Function to add state to history
-  add_to_history <- function(state) {
+  add_to_history = function(state) {
     if (length(history$states) >= 3) {
-      history$states <- history$states[-1]  # Keep only the last 3 states
+      history$states = history$states[-1]  # Keep only the last 3 states
     }
-    history$states <- c(history$states, list(state))
+    history$states = c(history$states, list(state))
   }
   
   # Function to rollback to a specific state
-  rollback_to_state <- function(index) {
+  rollback_to_state = function(index) {
     if (index <= length(history$states)) {
       data(history$states[[length(history$states) - index + 1]])
-      history$states <- history$states[1:(length(history$states) - index)]
+      history$states = history$states[1:(length(history$states) - index)]
       update_table(data())  # Update the table with the rolled back state
     }
   }
   
   # Observe the file input and load data
   observeEvent(input$file, {
-    ext <- tools::file_ext(input$file$name)
-    df <- switch(ext,
+    ext = tools::file_ext(input$file$name)
+    df = switch(ext,
                  csv = read_csv(input$file$datapath, col_names = input$header),
                  xlsx = read_excel(input$file$datapath, col_names = input$header),
                  stop("Invalid file type")
     )
     data(df)
-    history$states <- list(df)  # Initialize history with the loaded data
+    history$states = list(df)  # Initialize history with the loaded data
     update_table(df)  # Update the table with the loaded data
   })
   
   # UI output for datetime column selection
-  output$datetime_column <- renderUI({
+  output$datetime_column = renderUI({
     req(data())
     selectInput("datetime_col", "Select Datetime Column", choices = names(data()))
   })
   
   # UI output for column renaming
-  output$rename_column <- renderUI({
+  output$rename_column = renderUI({
     req(data())
     selectInput("column_to_rename", "Select Column to Rename", choices = names(data()))
   })
   
   # UI output for X-axis column selection
-  output$x_axis_column <- renderUI({
+  output$x_axis_column = renderUI({
     req(data())
     selectInput("x_axis", "Select X-Axis Column", choices = names(data()))
   })
   
   # UI output for Y-axis columns selection
-  output$y_axis_columns <- renderUI({
+  output$y_axis_columns = renderUI({
     req(data())
     tagList(
       selectInput("primary_y_axes", "Select Primary Y-Axis Columns", choices = names(data()), multiple = TRUE),
@@ -166,7 +166,7 @@ server <- function(input, output, session) {
   })
   
   # UI output for plot type selection for primary Y-axis columns
-  output$plot_type_primary <- renderUI({
+  output$plot_type_primary = renderUI({
     req(input$primary_y_axes)
     lapply(input$primary_y_axes, function(col) {
       selectInput(paste0("plot_type_", col, "_primary"), paste0("Plot Type for ", col, " (Primary)"), choices = c("line", "scatter"))
@@ -174,7 +174,7 @@ server <- function(input, output, session) {
   })
   
   # UI output for plot type selection for secondary Y-axis columns
-  output$plot_type_secondary <- renderUI({
+  output$plot_type_secondary = renderUI({
     req(input$secondary_y_axes)
     lapply(input$secondary_y_axes, function(col) {
       selectInput(paste0("plot_type_", col, "_secondary"), paste0("Plot Type for ", col, " (Secondary)"), choices = c("line", "scatter"))
@@ -182,7 +182,7 @@ server <- function(input, output, session) {
   })
   
   # UI output for datetime aggregation selection
-  output$datetime_aggregation <- renderUI({
+  output$datetime_aggregation = renderUI({
     req(data())
     tagList(
       selectInput("aggregation_type", "Select Aggregation Type", choices = c("Original", "Hourly", "Daily")),
@@ -192,9 +192,9 @@ server <- function(input, output, session) {
   # Observe the clean datetime button and clean the datetime column
   observeEvent(input$clean_datetime, {
     req(input$datetime_col)
-    df <- data()
+    df = data()
     add_to_history(df)
-    df[[input$datetime_col]] <- as.POSIXct(df[[input$datetime_col]], format = "%Y-%m-%dT%H:%M:%S", tz = "UTC")  # Convert to POSIXct
+    df[[input$datetime_col]] = as.POSIXct(df[[input$datetime_col]], format = "%Y-%m-%dT%H:%M:%S", tz = "UTC")  # Convert to POSIXct
     data(df)
     update_table(df)  # Update the table with cleaned datetime
   })
@@ -214,9 +214,9 @@ server <- function(input, output, session) {
   # Observe the drop date range button and drop observations within the date range
   observeEvent(input$drop_date_range_btn, {
     req(data(), input$datetime_col, input$drop_date_range)
-    df <- data()
+    df = data()
     add_to_history(df)
-    df <- df %>% filter(!(as.Date(df[[input$datetime_col]]) >= input$drop_date_range[1] & as.Date(df[[input$datetime_col]]) <= input$drop_date_range[2]))
+    df = df %>% filter(!(as.Date(df[[input$datetime_col]]) >= input$drop_date_range[1] & as.Date(df[[input$datetime_col]]) <= input$drop_date_range[2]))
     data(df)
     update_table(df)  # Update the table with dropped date range
   })
@@ -224,10 +224,10 @@ server <- function(input, output, session) {
   # Observe the round numeric button and round numeric columns
   observeEvent(input$round_numeric, {
     req(data())
-    df <- data()
+    df = data()
     add_to_history(df)
-    num_cols <- sapply(df, is.numeric)
-    df[num_cols] <- lapply(df[num_cols], round, digits = input$decimals)
+    num_cols = sapply(df, is.numeric)
+    df[num_cols] = lapply(df[num_cols], round, digits = input$decimals)
     data(df)
     update_table(df)  # Update the table with rounded numeric columns
   })
@@ -235,9 +235,9 @@ server <- function(input, output, session) {
   # Observe the rename column button and rename the selected column
   observeEvent(input$rename_column_btn, {
     req(input$column_to_rename, input$new_column_name)
-    df <- data()
+    df = data()
     add_to_history(df)
-    colnames(df)[colnames(df) == input$column_to_rename] <- input$new_column_name
+    colnames(df)[colnames(df) == input$column_to_rename] = input$new_column_name
     data(df)
     update_table(df)  # Update the table with renamed column
   })
@@ -253,12 +253,12 @@ server <- function(input, output, session) {
     rollback_to_state(3)
   })
   
-  update_table <- function(df) {
+  update_table = function(df) {
     # Get column data types and append to column names
-    data_types <- sapply(df, class)
-    colnames(df) <- paste0(colnames(df), " (", data_types, ")")
+    data_types = sapply(df, class)
+    colnames(df) = paste0(colnames(df), " (", data_types, ")")
     
-    output$table <- renderDataTable({
+    output$table = renderDataTable({
       datatable(df, options = list(
         pageLength = 10,
         scrollX = TRUE,
@@ -269,14 +269,14 @@ server <- function(input, output, session) {
   
   observeEvent(input$go_to_date, {
     req(input$navigate_date, input$datetime_col)
-    df <- data()
-    dt_col <- input$datetime_col
+    df = data()
+    dt_col = input$datetime_col
     if (dt_col %in% colnames(df)) {
-      target_row <- which(format(df[[dt_col]], "%Y-%m-%d") == format(input$navigate_date, "%Y-%m-%d"))
+      target_row = which(format(df[[dt_col]], "%Y-%m-%d") == format(input$navigate_date, "%Y-%m-%d"))
       if (length(target_row) > 0) {
-        page_length <- 10
-        target_page <- (target_row[1] - 1) %/% page_length + 1
-        proxy <- dataTableProxy('table')
+        page_length = 10
+        target_page = (target_row[1] - 1) %/% page_length + 1
+        proxy = dataTableProxy('table')
         proxy %>% selectPage(target_page)
       }
     }
@@ -287,16 +287,16 @@ server <- function(input, output, session) {
   observeEvent(input$plot_graph, {
     req(input$x_axis, input$datetime_col, input$aggregation_type, input$aggregation_func)
     
-    df_orig <- data()
-    x_col <- input$x_axis
+    df_orig = data()
+    x_col = input$x_axis
     agg_x_col = if (is.numeric(df_orig[[input$x_axis]])) input$x_axis else NULL
-    datetime_col <- input$datetime_col
-    aggregation_type <- input$aggregation_type
-    aggregation_func <- input$aggregation_func
+    datetime_col = input$datetime_col
+    aggregation_type = input$aggregation_type
+    aggregation_func = input$aggregation_func
     
     # Aggregate data based on user selection
     if (aggregation_type != "Original") {
-      df <- df_orig %>%
+      df = df_orig %>%
         mutate(temp_datetime = case_when(
           aggregation_type == "Hourly" ~ floor_date(!!sym(datetime_col), "hour"),
           aggregation_type == "Daily" ~ floor_date(!!sym(datetime_col), "day")
@@ -309,11 +309,11 @@ server <- function(input, output, session) {
       df = df_orig
     }
     
-    plot <- plot_ly(df, x = ~get(x_col))
+    plot = plot_ly(df, x = ~get(x_col))
     
     # Add traces for primary y-axis columns
     lapply(input$primary_y_axes, function(col) {
-      plot_type <- input[[paste0("plot_type_", col, "_primary")]]
+      plot_type = input[[paste0("plot_type_", col, "_primary")]]
       if (plot_type == "line") {
         plot <<- plot %>% add_lines(y = ~get(col), name = col, yaxis = "y1")
       } else {
@@ -323,7 +323,7 @@ server <- function(input, output, session) {
     
     # Add traces for secondary y-axis columns
     lapply(input$secondary_y_axes, function(col) {
-      plot_type <- input[[paste0("plot_type_", col, "_secondary")]]
+      plot_type = input[[paste0("plot_type_", col, "_secondary")]]
       if (plot_type == "line") {
         plot <<- plot %>% add_lines(y = ~get(col), name = col, yaxis = "y2")
       } else {
@@ -331,20 +331,20 @@ server <- function(input, output, session) {
       }
     })
     
-    plot <- plot %>%
+    plot = plot %>%
       layout(
         xaxis = list(title = input$x_axis),
         yaxis = list(title = "Primary Y-Axis", range = c(input$y_axis_min, input$y_axis_max)),
         yaxis2 = list(title = "Secondary Y-Axis", overlaying = "y", side = "right", range = c(input$y2_axis_min, input$y2_axis_max))
       )
     
-    output$plot <- renderPlotly({
+    output$plot = renderPlotly({
       plot
     })
   })
   
   # Download data as Excel file
-  output$download_data <- downloadHandler(
+  output$download_data = downloadHandler(
     filename = function() {
       paste("data-", Sys.Date(), ".xlsx", sep = "")
     },
@@ -365,19 +365,19 @@ server <- function(input, output, session) {
   })
   
   # Define data that can change
-  data <- reactiveVal(NULL)  # Reactive value to store data
-  model_output <- reactiveVal(NULL)  # Reactive value to store model output
-  model_stats <- reactiveVal(NULL)  # Reactive value to store model stats
+  data = reactiveVal(NULL)  # Reactive value to store data
+  model_output = reactiveVal(NULL)  # Reactive value to store model output
+  model_stats = reactiveVal(NULL)  # Reactive value to store model stats
   
   # UI for dr date selector
-  output$date_selector <- renderUI({
+  output$date_selector = renderUI({
     if (input$dr_analysis) {
       airDatepickerInput("dr_dates", "Select DR Dates", multiple = TRUE)
     }
   })
   
   observeEvent(input$dr_dates, {
-    dr_dates <- as.character(input$dr_dates)
+    dr_dates = as.character(input$dr_dates)
     output$dr_date_plotter_ui = renderUI({
       selectInput("dr_date_plotter", "Date to Plot", choices = c("Any", dr_dates))
     })
@@ -386,29 +386,29 @@ server <- function(input, output, session) {
   ##### Need to deal with how data is flowing from first page to this page
 
   # Update the y_var, temp_var, time_var, and additional_vars UI with column names from the uploaded dataframe
-  output$y_var_ui <- renderUI({
+  output$y_var_ui = renderUI({
     req(data())
     selectInput("y_var", "Y Variable", choices = names(data()))
   })
   
-  output$temp_var_ui <- renderUI({
+  output$temp_var_ui = renderUI({
     req(data())
     selectInput("temp_var", "Temp Variable", choices = names(data()))
   })
   
-  output$time_var_ui <- renderUI({
+  output$time_var_ui = renderUI({
     req(data())
     selectInput("time_var", "Time Variable", choices = names(data()))
   })
   
-  output$additional_vars_ui <- renderUI({
+  output$additional_vars_ui = renderUI({
     req(data())
     selectInput("additional_vars", "Additional Variables", choices = names(data()), multiple = TRUE)
   })
 
 # Observe additional_vars input and update additional_var_agg UI
 observeEvent(input$additional_vars, {
-  output$additional_var_agg_ui <- renderUI({
+  output$additional_var_agg_ui = renderUI({
     req(input$additional_vars)
     lapply(seq_along(input$additional_vars), function(i) {
       selectInput(paste0("additional_var_agg_", i), paste0("Aggregation for ", input$additional_vars[i]), choices = c("mean", "median", "max", "min"))
@@ -417,8 +417,8 @@ observeEvent(input$additional_vars, {
 })
   
   # Function to get modeling inputs
-  get_modeling_inputs <- reactive({
-    timescale_days <- if (is.null(input$timescale_days) || is.numeric(input$timescale_days)) {
+  get_modeling_inputs = reactive({
+    timescale_days = if (is.null(input$timescale_days) || is.numeric(input$timescale_days)) {
       input$timescale_days
     } else {
       NULL
@@ -465,8 +465,8 @@ observeEvent(input$additional_vars, {
   
   # Observe the generate inputs button and display modeling inputs
   observeEvent(input$generate_inputs, {
-    modeling_inputs <- get_modeling_inputs()
-    output$modeling_inputs_output <- renderPrint({
+    modeling_inputs = get_modeling_inputs()
+    output$modeling_inputs_output = renderPrint({
       modeling_inputs
     })
   })
@@ -474,14 +474,14 @@ observeEvent(input$additional_vars, {
   # Observe the run model button and display model output
   observeEvent(input$run_model, {
     req(data())
-    modeling_inputs <- get_modeling_inputs()
+    modeling_inputs = get_modeling_inputs()
     model_output(mv(data(), modeling_inputs))
     
     # Extract model stats and combine into a single dataframe
-    stats <- do.call(rbind, lapply(names(model_output()), function(name) {
-      stats <- model_output()[[name]]$baseline_stats
+    stats = do.call(rbind, lapply(names(model_output()), function(name) {
+      stats = model_output()[[name]]$baseline_stats
       stats = as.data.frame(lapply(stats, type.convert, as.is = TRUE))
-      stats[] <- lapply(stats, function(x) {
+      stats[] = lapply(stats, function(x) {
         if (is.numeric(x)) {
           ifelse(abs(x) < 0.01, format(x, scientific = TRUE, digits = 4), format(x, digits = 4))
         } else {
@@ -492,7 +492,7 @@ observeEvent(input$additional_vars, {
     }))
     model_stats(stats)
     
-    output$model_stats_table <- renderDataTable({
+    output$model_stats_table = renderDataTable({
       datatable(model_stats(), options = list(
         pageLength = 10,
         scrollX = TRUE,
@@ -504,8 +504,8 @@ observeEvent(input$additional_vars, {
   # Observe row selection in the model stats table and create plot
   observeEvent(input$model_stats_table_rows_selected, {
     req(model_output())
-    selected_model <- model_stats()[input$model_stats_table_rows_selected, "Model"]
-    performance_predictions <- model_output()[[selected_model]]$performance_prediction
+    selected_model = model_stats()[input$model_stats_table_rows_selected, "Model"]
+    performance_predictions = model_output()[[selected_model]]$performance_prediction
     performance_predictions$date = date(performance_predictions[[input$time_var]])
     performance_predictions$hour = hour(performance_predictions[[input$time_var]])
     performance_predictions = tibble(performance_predictions)
@@ -528,15 +528,15 @@ observeEvent(input$additional_vars, {
     })
     
     if (input$dr_analysis){
-      output$model_plot <- renderPlotly({
+      output$model_plot = renderPlotly({
         df_dr = df_react()
-        min_val <- floor(min(df_dr[[input$y_var]], df_dr$predictions))
-        max_val <- ceiling(max(df_dr[[input$y_var]], df_dr$predictions))
-        range_val <- max_val - min_val
+        min_val = floor(min(df_dr[[input$y_var]], df_dr$predictions))
+        max_val = ceiling(max(df_dr[[input$y_var]], df_dr$predictions))
+        range_val = max_val - min_val
         
         # Calculate tick interval using Plotly's default logic
-        tick_interval <- pretty(range_val, n = 10)[2] - pretty(range_val, n = 10)[1]
-        tickvals <- seq(min_val, max_val, by = tick_interval)
+        tick_interval = pretty(range_val, n = 10)[2] - pretty(range_val, n = 10)[1]
+        tickvals = seq(min_val, max_val, by = tick_interval)
         
         plot_ly(df_dr, x = df_dr$hour) %>%
           add_lines(y = ~get(input$y_var), name = input$y_var, yaxis = "y1") %>%
@@ -561,14 +561,14 @@ observeEvent(input$additional_vars, {
           )
       })
     } else{
-      output$model_plot <- renderPlotly({
-        min_val <- floor(min(performance_predictions[[input$y_var]], performance_predictions$predictions))
-        max_val <- ceiling(max(performance_predictions[[input$y_var]], performance_predictions$predictions))
-        range_val <- max_val - min_val
+      output$model_plot = renderPlotly({
+        min_val = floor(min(performance_predictions[[input$y_var]], performance_predictions$predictions))
+        max_val = ceiling(max(performance_predictions[[input$y_var]], performance_predictions$predictions))
+        range_val = max_val - min_val
         
         # Calculate tick interval using Plotly's default logic
-        tick_interval <- pretty(range_val, n = 10)[2] - pretty(range_val, n = 10)[1]
-        tickvals <- seq(min_val, max_val, by = tick_interval)
+        tick_interval = pretty(range_val, n = 10)[2] - pretty(range_val, n = 10)[1]
+        tickvals = seq(min_val, max_val, by = tick_interval)
         
         plot_ly(performance_predictions, x = ~get(input$time_var)) %>%
           add_lines(y = ~get(input$y_var), name = input$y_var, yaxis = "y1") %>%
@@ -593,12 +593,12 @@ observeEvent(input$additional_vars, {
           )
       })
     }
-    output$totals <- renderUI({
-      totals_df <- if (input$dr_analysis) df_react() else performance_predictions
+    output$totals = renderUI({
+      totals_df = if (input$dr_analysis) df_react() else performance_predictions
       totals_df$savings = totals_df$predictions - totals_df[[input$y_var]]
-      total_actual_usage <- round(sum(totals_df[[input$y_var]], na.rm = TRUE), 2)
-      total_predicted_usage <- round(sum(totals_df$predictions, na.rm = TRUE), 2)
-      total_savings <- round(sum(totals_df$savings, na.rm = TRUE), 2)
+      total_actual_usage = round(sum(totals_df[[input$y_var]], na.rm = TRUE), 2)
+      total_predicted_usage = round(sum(totals_df$predictions, na.rm = TRUE), 2)
+      total_savings = round(sum(totals_df$savings, na.rm = TRUE), 2)
       
       tagList(
         h4("Total Actual Usage: ", total_actual_usage),
@@ -609,7 +609,7 @@ observeEvent(input$additional_vars, {
   })
   
   # Download data as Excel file
-  output$download_data <- downloadHandler(
+  output$download_data = downloadHandler(
     filename = function() {
       paste("data-", Sys.Date(), ".xlsx", sep = "")
     },
@@ -617,18 +617,18 @@ observeEvent(input$additional_vars, {
       # Ensure the required inputs are available
       req(model_output())
       req(model_stats)
-      selected_model <- model_stats()[input$model_stats_table_rows_selected, "Model"]
+      selected_model = model_stats()[input$model_stats_table_rows_selected, "Model"]
       baseline_df_output = model_output()[[selected_model]]$baseline_mod$training_data
       baseline_mod_inputs = model_output()[[selected_model]]$baseline_mod$model_input_options
       
-      performance_predictions <- model_output()[[selected_model]]$performance_prediction
+      performance_predictions = model_output()[[selected_model]]$performance_prediction
       performance_predictions$date = date(performance_predictions[[input$time_var]])
       performance_predictions$hour = hour(performance_predictions[[input$time_var]])
       performance_predictions = tibble(performance_predictions)
       performance_predictions$savings = performance_predictions$predictions - performance_predictions[[input$y_var]]
       
       # Create a new workbook
-      wb <- createWorkbook()
+      wb = createWorkbook()
       
       # Add the first sheet with model stats
       addWorksheet(wb, "Model Stats")
@@ -636,9 +636,9 @@ observeEvent(input$additional_vars, {
       
       # Add sheet with input options and write model inputs
       addWorksheet(wb, "Model options")
-      row <- 1  # Start at row 1
+      row = 1  # Start at row 1
       for (name in names(baseline_mod_inputs)) {
-        item <- baseline_mod_inputs[[name]]
+        item = baseline_mod_inputs[[name]]
         
         # Write the name of the list element
         writeData(wb, "Model options", name, startRow = row, startCol = 1)
@@ -646,15 +646,15 @@ observeEvent(input$additional_vars, {
         if (is.data.frame(item)) {
           # Write data frames starting in the next row
           writeData(wb, "Model options", item, startRow = row + 1, startCol = 2)
-          row <- row + nrow(item) + 2  # Move to next row (leave a blank row)
+          row = row + nrow(item) + 2  # Move to next row (leave a blank row)
         } else if (is.vector(item) || is.list(item)) {
           # Convert vectors/lists to a column and write them
           writeData(wb, "Model options", t(data.frame(item)), startRow = row + 1, startCol = 2, colNames = FALSE)
-          row <- row + length(item) + 2
+          row = row + length(item) + 2
         } else {
           # Write single values (numbers, strings, etc.)
           writeData(wb, "Model options", as.character(item), startRow = row + 1, startCol = 2)
-          row <- row + 2
+          row = row + 2
         }
       }
       
