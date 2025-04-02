@@ -473,31 +473,35 @@ observeEvent(input$additional_vars, {
   
   # Observe the run model button and display model output
   observeEvent(input$run_model, {
-    req(data())
-    modeling_inputs = get_modeling_inputs()
-    model_output(mv(data(), modeling_inputs))
-    
-    # Extract model stats and combine into a single dataframe
-    stats = do.call(rbind, lapply(names(model_output()), function(name) {
-      stats = model_output()[[name]]$baseline_stats
-      stats = as.data.frame(lapply(stats, type.convert, as.is = TRUE))
-      stats[] = lapply(stats, function(x) {
-        if (is.numeric(x)) {
-          ifelse(abs(x) < 0.01, format(x, scientific = TRUE, digits = 4), format(x, digits = 4))
-        } else {
-          x
-        }
+    tryCatch({
+      req(data())
+      modeling_inputs = get_modeling_inputs()
+      model_output(mv(data(), modeling_inputs))
+      
+      # Extract model stats and combine into a single dataframe
+      stats = do.call(rbind, lapply(names(model_output()), function(name) {
+        stats = model_output()[[name]]$baseline_stats
+        stats = as.data.frame(lapply(stats, type.convert, as.is = TRUE))
+        stats[] = lapply(stats, function(x) {
+          if (is.numeric(x)) {
+            ifelse(abs(x) < 0.01, format(x, scientific = TRUE, digits = 4), format(x, digits = 4))
+          } else {
+            x
+          }
+        })
+        cbind(Model = name, stats)
+      }))
+      model_stats(stats)
+      
+      output$model_stats_table = renderDataTable({
+        datatable(model_stats(), options = list(
+          pageLength = 10,
+          scrollX = TRUE,
+          scrollY = "200px"
+        ))
       })
-      cbind(Model = name, stats)
-    }))
-    model_stats(stats)
-    
-    output$model_stats_table = renderDataTable({
-      datatable(model_stats(), options = list(
-        pageLength = 10,
-        scrollX = TRUE,
-        scrollY = "200px"
-      ))
+    }, error = function(e) {
+      showNotification(paste("Error:", e$message), type = "error")
     })
   })
   
