@@ -18,6 +18,7 @@ ui = navbarPage("Energy Meter Data Analysis",
                  tabPanel("Table Display",
                           sidebarLayout(
                             sidebarPanel(
+                              # File upload and adding data section
                               fileInput("file", "Select your main data CSV or Excel File",
                                         accept = c(".csv", ".xlsx")),  # File input for CSV or Excel files
                               checkboxInput("header", "Header", TRUE),  # Checkbox to include header in file
@@ -25,7 +26,10 @@ ui = navbarPage("Energy Meter Data Analysis",
                               actionButton("clean_datetime", "Clean SkySpark Datetime"),  # Button to clean datetime format
                               fileInput("temperaturefile", "If your temperature data is in a separate file, choose CSV or Excel File",
                                         accept = c(".csv", ".xlsx")),  # File input for CSV or Excel files
+                              tags$h4("Add UCSF working holidays to dataset"), # Holidays section
                               actionButton("add_holidays", "Add Working Holidays"), # Button to add work holiday indicator column
+                              
+                              # Process data section
                               numericInput("decimals", "Decimal Places", value = 2, min = 0),  # Input for decimal places
                               actionButton("round_numeric", "Round Numeric Columns"),  # Button to round numeric columns
                               dateRangeInput("drop_date_range", "Drop Observations Between Dates"),  # Input for date range to drop observations
@@ -33,11 +37,13 @@ ui = navbarPage("Energy Meter Data Analysis",
                               uiOutput("rename_column"),  # UI output for renaming column
                               textInput("new_column_name", "New Column Name"),  # Input for new column name
                               actionButton("rename_column_btn", "Rename Column"),  # Button to rename column
+                              dateInput("navigate_date", "Navigate to Date"),  # Input to navigate to a specific date
+                              actionButton("go_to_date", "Go to Date"),  # Button to go to the specified date
+                              
+                              tags$h4("Rollback Changes"), # Rollback section
                               actionButton("rollback_1", "Rollback to Last Change"),  # Button to rollback to last change
                               actionButton("rollback_2", "Rollback to Second Last Change"),  # Button to rollback to second last change
-                              actionButton("rollback_3", "Rollback to Third Last Change"),  # Button to rollback to third last change
-                              dateInput("navigate_date", "Navigate to Date"),  # Input to navigate to a specific date
-                              actionButton("go_to_date", "Go to Date")  # Button to go to the specified date
+                              actionButton("rollback_3", "Rollback to Third Last Change")  # Button to rollback to third last change
                             ),
                             mainPanel(
                               dataTableOutput("table")  # Output for displaying the data table
@@ -97,6 +103,15 @@ ui = navbarPage("Energy Meter Data Analysis",
                               verbatimTextOutput("modeling_inputs_output"),  # Output for displaying the modeling inputs
                               dataTableOutput("model_stats_table"),  # Output for displaying the model stats table
                               downloadButton("download_data", "Download Data as Excel"),  # Button to download data as Excel
+                              dateRangeInput("date_range", "Filter by Date Range", start = NULL, end = NULL),
+                              
+                              sliderInput("hour_range", "Hour of Day", min = 0, max = 23, value = c(0, 23), step = 1),
+                              
+                              selectInput("dow_filter", "Filter by Day(s) of Week",
+                                          choices = weekdays(ISOdate(2000,1,3:9)),  # Monday to Sunday
+                                          selected = weekdays(ISOdate(2000,1,3:9)), # All days selected by default
+                                          multiple = TRUE
+                              ),
                               plotlyOutput("model_plot"),  # Output for displaying the plot
                               uiOutput("totals"),
                               plotlyOutput("baseline_performance_plot"),
@@ -594,72 +609,54 @@ observeEvent(input$additional_vars, {
       }
     })
     
-    if (input$dr_analysis){
-      output$model_plot = renderPlotly({
-        df_dr = df_react()
-        min_val = floor(min(df_dr[[input$y_var]], df_dr$predictions))
-        max_val = ceiling(max(df_dr[[input$y_var]], df_dr$predictions))
-        range_val = max_val - min_val
-        
-        # Calculate tick interval using Plotly's default logic
-        tick_interval = pretty(range_val, n = 10)[2] - pretty(range_val, n = 10)[1]
-        tickvals = seq(min_val, max_val, by = tick_interval)
-        
-        plot_ly(df_dr, x = df_dr$hour) %>%
-          add_lines(y = ~get(input$y_var), name = input$y_var, yaxis = "y1") %>%
-          add_lines(y = ~predictions, name = "Predictions", yaxis = "y2") %>%
-          layout(
-            title = "Performance Period",
-            xaxis = list(
-              title = input$time_var
-            ),
-            yaxis = list(
-              title = input$y_var,
-              range = c(min_val, max_val),
-              tickvals = tickvals
-            ),
-            yaxis2 = list(
-              title = "Predictions",
-              overlaying = "y",
-              side = "right",
-              range = c(min_val, max_val),
-              tickvals = tickvals
-            )
-          )
-      })
-    } else{
-      output$model_plot = renderPlotly({
-        min_val = floor(min(performance_predictions[[input$y_var]], performance_predictions$predictions))
-        max_val = ceiling(max(performance_predictions[[input$y_var]], performance_predictions$predictions))
-        range_val = max_val - min_val
-        
-        # Calculate tick interval using Plotly's default logic
-        tick_interval = pretty(range_val, n = 10)[2] - pretty(range_val, n = 10)[1]
-        tickvals = seq(min_val, max_val, by = tick_interval)
-        
-        plot_ly(performance_predictions, x = ~get(input$time_var)) %>%
-          add_lines(y = ~get(input$y_var), name = input$y_var, yaxis = "y1") %>%
-          add_lines(y = ~predictions, name = "Predictions", yaxis = "y2") %>%
-          layout(
-            title = "Performance Period",
-            xaxis = list(
-              title = input$time_var
-            ),
-            yaxis = list(
-              title = input$y_var,
-              range = c(min_val, max_val),
-              tickvals = tickvals
-            ),
-            yaxis2 = list(
-              title = "Predictions",
-              overlaying = "y",
-              side = "right",
-              range = c(min_val, max_val),
-              tickvals = tickvals
-            )
-          )
-      })
-    }
+    observe({
+      req(performance_predictions)
+      min_date <- min(as.Date(performance_predictions[[input$time_var]]), na.rm = TRUE)
+      max_date <- max(as.Date(performance_predictions[[input$time_var]]), na.rm = TRUE)
+      updateDateRangeInput(session, "date_range", start = min_date, end = max_date)
+    })
+    
+    filtered_predictions <- reactive({
+      df <- performance_predictions
+      req(input$time_var, input$y_var)
+      
+      df$date <- as.Date(df[[input$time_var]])
+      df$hour <- lubridate::hour(df[[input$time_var]])
+      df$dow <- weekdays(df$date)
+      
+      if (!is.null(input$date_range)) {
+        df <- df[df$date >= input$date_range[1] & df$date <= input$date_range[2], ]
+      }
+      
+      df <- df[df$hour >= input$hour_range[1] & df$hour <= input$hour_range[2], ]
+      
+      # Handle multiple selected days or "All"
+      if (!("All" %in% input$dow_filter)) {
+        df <- df[df$dow %in% input$dow_filter, ]
+      }
+      
+      return(df)
+    })
+    
+    output$model_plot = renderPlotly({
+      df_plot <- if (input$dr_analysis) df_react() else filtered_predictions()
+      
+      min_val = floor(min(df_plot[[input$y_var]], df_plot$predictions, na.rm = TRUE))
+      max_val = ceiling(max(df_plot[[input$y_var]], df_plot$predictions, na.rm = TRUE))
+      range_val = max_val - min_val
+      tick_interval = pretty(range_val, n = 10)[2] - pretty(range_val, n = 10)[1]
+      tickvals = seq(min_val, max_val, by = tick_interval)
+      
+      plot_ly(df_plot, x = ~get(input$time_var)) %>%
+        add_lines(y = ~get(input$y_var), name = input$y_var, yaxis = "y1") %>%
+        add_lines(y = ~predictions, name = "Predictions", yaxis = "y2") %>%
+        layout(
+          title = "Performance Period",
+          xaxis = list(title = input$time_var),
+          yaxis = list(title = input$y_var, range = c(min_val, max_val), tickvals = tickvals),
+          yaxis2 = list(title = "Predictions", overlaying = "y", side = "right", range = c(min_val, max_val), tickvals = tickvals)
+        )
+    })
     
     output$baseline_performance_plot = renderPlotly({
       df <- combined_periods
@@ -761,7 +758,7 @@ observeEvent(input$additional_vars, {
     })
     
     output$totals = renderUI({
-      totals_df = if (input$dr_analysis) df_react() else performance_predictions
+      totals_df = if (input$dr_analysis) df_react() else filtered_predictions()
       totals_df$savings = totals_df$predictions - totals_df[[input$y_var]]
       total_actual_usage = round(sum(totals_df[[input$y_var]], na.rm = TRUE), 2)
       total_predicted_usage = round(sum(totals_df$predictions, na.rm = TRUE), 2)
