@@ -14,15 +14,17 @@ library(nmecr)
 source("helper.R")
 
 # Define the UI of the application
-ui = navbarPage("My App",
+ui = navbarPage("Energy Meter Data Analysis",
                  tabPanel("Table Display",
                           sidebarLayout(
                             sidebarPanel(
-                              fileInput("file", "Choose CSV or Excel File",
+                              fileInput("file", "Select your main data CSV or Excel File",
                                         accept = c(".csv", ".xlsx")),  # File input for CSV or Excel files
                               checkboxInput("header", "Header", TRUE),  # Checkbox to include header in file
                               uiOutput("datetime_column"),  # UI output for selecting datetime column
                               actionButton("clean_datetime", "Clean SkySpark Datetime"),  # Button to clean datetime format
+                              fileInput("temperaturefile", "If your temperature data is in a separate file, choose CSV or Excel File",
+                                        accept = c(".csv", ".xlsx")),  # File input for CSV or Excel files
                               actionButton("add_holidays", "Add Working Holidays"), # Button to add work holiday indicator column
                               numericInput("decimals", "Decimal Places", value = 2, min = 0),  # Input for decimal places
                               actionButton("round_numeric", "Round Numeric Columns"),  # Button to round numeric columns
@@ -96,7 +98,25 @@ ui = navbarPage("My App",
                               dataTableOutput("model_stats_table"),  # Output for displaying the model stats table
                               downloadButton("download_data", "Download Data as Excel"),  # Button to download data as Excel
                               plotlyOutput("model_plot"),  # Output for displaying the plot
-                              uiOutput("totals")
+                              uiOutput("totals"),
+                              plotlyOutput("baseline_performance_plot"),
+                              selectInput(
+                                inputId = "day_type_select",
+                                label = "Select Day Type",
+                                choices = c(
+                                  "Weekday",
+                                  "Weekend",
+                                  "Monday",
+                                  "Tuesday",
+                                  "Wednesday",
+                                  "Thursday",
+                                  "Friday",
+                                  "Saturday",
+                                  "Sunday"
+                                ),
+                                selected = "Weekday"
+                              ),
+                              plotlyOutput("load_profile_plot")
                             )
                           )
                  )
@@ -135,6 +155,40 @@ server = function(input, output, session) {
     history$states = list(df)  # Initialize history with the loaded data
     update_table(df)  # Update the table with the loaded data
   })
+  
+  observeEvent(input$temperaturefile, {
+    req(data())
+    req(input$datetime_col)
+    ext = tools::file_ext(input$temperaturefile$name)
+    df_temperature = switch(ext,
+                            csv = read_csv(input$temperaturefile$datapath, col_names = input$header),
+                            xlsx = read_excel(input$temperaturefile$datapath, col_names = input$header),
+                            stop("Invalid file type")
+    )
+    df = data()
+    # Perform inner join using dynamic column name
+    
+    merged_df <- tryCatch(
+      {
+        inner_join(
+          df,
+          df_temperature,
+          by = setNames("Timestamp", input$datetime_col)
+        )
+      },
+      error = function(e) {
+        message("First join failed, trying with 'time' instead of 'Timestamp'")
+        inner_join(
+          df,
+          df_temperature,
+          by = setNames("time", input$datetime_col)
+        )
+      }
+    )
+    data(merged_df)
+    update_table(merged_df)
+  })
+  
   
   # UI output for datetime column selection
   output$datetime_column = renderUI({
@@ -513,6 +567,15 @@ observeEvent(input$additional_vars, {
     performance_predictions$date = date(performance_predictions[[input$time_var]])
     performance_predictions$hour = hour(performance_predictions[[input$time_var]])
     performance_predictions = tibble(performance_predictions)
+    base_df = tibble(model_output()[[selected_model]]$baseline_mod$training_data)
+    pp = performance_predictions %>% select(input$time_var, input$y_var, "predictions")
+    bp = base_df %>% select(input$time_var, input$y_var, "model_fit")
+    bp = bp %>% rename(predictions = model_fit)
+    bp$period = "Baseline"
+    pp$period = "Performance"
+    combined_periods = bind_rows(bp, pp)
+    print(bp)
+    print(pp)
     y_var_sym = sym(input$y_var)
     df_react = reactive({
       if (input$dr_date_plotter=="Any"){
@@ -597,6 +660,106 @@ observeEvent(input$additional_vars, {
           )
       })
     }
+    
+    output$baseline_performance_plot = renderPlotly({
+      df <- combined_periods
+      
+      # Get the actual y-variable name and time variable name
+      y_var <- input$y_var
+      time_var = input$time_var
+      
+      # Calculate y-axis range from both selected y-variable and predictions
+      min_val = floor(min(df[[y_var]], df$predictions, na.rm = TRUE))
+      max_val = ceiling(max(df[[y_var]], df$predictions, na.rm = TRUE))
+      range_val = max_val - min_val
+      
+      # Compute tick intervals
+      tick_interval = pretty(range_val, n = 10)[2] - pretty(range_val, n = 10)[1]
+      tickvals = seq(min_val, max_val, by = tick_interval)
+      
+      plot_ly(df, x = ~get(time_var)) %>%
+        add_lines(y = ~get(y_var), name = y_var) %>%
+        add_lines(y = ~predictions, name = "Predictions", line = list(dash = "dash")) %>%
+        layout(
+          title = "Baseline and Performance Periods",
+          xaxis = list(title = "Timestamp"),
+          yaxis = list(
+            title = y_var,
+            range = c(min_val, max_val),
+            tickvals = tickvals
+          ),
+          legend = list(title = list(text = "<b>Legend</b>"))
+        )
+    })
+    
+    output$load_profile_plot <- renderPlotly({
+      df <- combined_periods
+      
+      y_var <- input$y_var
+      time_var <- input$time_var
+      selected_day <- input$day_type_select
+      
+      df <- df %>%
+        mutate(
+          hour = lubridate::hour(.data[[time_var]]),
+          wday = lubridate::wday(.data[[time_var]], label = TRUE, abbr = FALSE),
+          day_type = case_when(
+            wday %in% c("Saturday", "Sunday") ~ "Weekend",
+            TRUE ~ "Weekday"
+          ),
+          period = as.character(.data[["period"]])
+        )
+      
+      # Filter based on dropdown selection
+      df_filtered <- if (selected_day %in% c("Weekday", "Weekend")) {
+        df %>% filter(day_type == selected_day)
+      } else {
+        df %>% filter(wday == selected_day)
+      }
+      
+      summary_df <- df_filtered %>%
+        group_by(hour, period) %>%
+        summarise(
+          elec = mean(elec, na.rm = TRUE),
+          predictions = mean(predictions, na.rm = TRUE),
+          .groups = "drop"
+        )
+      
+      color_map <- c("Performance" = "orange", "Baseline" = "blue")
+      
+      p <- plot_ly()
+      
+      for (period_val in unique(summary_df$period)) {
+        data_subset <- summary_df %>% filter(period == period_val)
+        
+        color <- color_map[[period_val]]
+        if (is.na(color)) color <- "gray"
+        
+        p <- p %>%
+          add_lines(
+            data = data_subset,
+            x = ~hour,
+            y = ~elec,
+            name = paste(period_val, "- Elec"),
+            line = list(color = color, dash = "solid")
+          ) %>%
+          add_lines(
+            data = data_subset,
+            x = ~hour,
+            y = ~predictions,
+            name = paste(period_val, "- Predictions"),
+            line = list(color = color, dash = "dash")
+          )
+      }
+      
+      p %>% layout(
+        title = paste("Average Hourly Load -", selected_day),
+        xaxis = list(title = "Hour of Day", dtick = 1),
+        yaxis = list(title = y_var),
+        legend = list(title = list(text = "<b>Legend</b>"))
+      )
+    })
+    
     output$totals = renderUI({
       totals_df = if (input$dr_analysis) df_react() else performance_predictions
       totals_df$savings = totals_df$predictions - totals_df[[input$y_var]]
@@ -611,6 +774,11 @@ observeEvent(input$additional_vars, {
       )
     })
   })
+  
+  output$baseline_performance_plot = renderPlotly({
+    
+  })
+  
   
   # Download data as Excel file
   output$download_data = downloadHandler(

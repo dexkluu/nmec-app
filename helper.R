@@ -127,7 +127,7 @@ mv = function(df, nmec_options){
     out_list = list()
     baseline_mod = model_algo(training_data = baseline_df, model_input_options = model_inputs)
     baseline_stats = calculate_summary_statistics(baseline_mod)
-    performance_prediction = calculate_model_predictions(baseline_df, performance_df, baseline_mod, FALSE)
+    performance_prediction = calculate_model_predictions(baseline_df, performance_df, baseline_mod, TRUE)
     aeu = calculate_savings_and_uncertainty(performance_prediction, savings_fraction=0.1, modeled_object=baseline_mod, model_summary_statistics = baseline_stats)
     out_list[["baseline_mod"]] = baseline_mod
     out_list[["baseline_stats"]] = baseline_stats
