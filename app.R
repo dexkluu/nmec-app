@@ -11,130 +11,149 @@ library(shinyWidgets)
 library(rlang)
 library(shinyjs)
 library(nmecr)
+library(shinyWidgets)
+library(bslib)
+library(shinycssloaders)
+library(shinyjs)
 source("helper.R")
 
 # Define the UI of the application
-ui = navbarPage("Energy Meter Data Analysis",
-                 tabPanel("Table Display",
-                          sidebarLayout(
-                            sidebarPanel(
-                              # File upload and adding data section
-                              fileInput("file", "Select your main data CSV or Excel File",
-                                        accept = c(".csv", ".xlsx")),  # File input for CSV or Excel files
-                              checkboxInput("header", "Header", TRUE),  # Checkbox to include header in file
-                              uiOutput("datetime_column"),  # UI output for selecting datetime column
-                              actionButton("clean_datetime", "Clean SkySpark Datetime"),  # Button to clean datetime format
-                              fileInput("temperaturefile", "If your temperature data is in a separate file, choose CSV or Excel File",
-                                        accept = c(".csv", ".xlsx")),  # File input for CSV or Excel files
-                              tags$h4("Add UCSF working holidays to dataset"), # Holidays section
-                              actionButton("add_holidays", "Add Working Holidays"), # Button to add work holiday indicator column
-                              
-                              # Process data section
-                              numericInput("decimals", "Decimal Places", value = 2, min = 0),  # Input for decimal places
-                              actionButton("round_numeric", "Round Numeric Columns"),  # Button to round numeric columns
-                              dateRangeInput("drop_date_range", "Drop Observations Between Dates"),  # Input for date range to drop observations
-                              actionButton("drop_date_range_btn", "Drop Date Range"),  # Button to drop date range
-                              uiOutput("rename_column"),  # UI output for renaming column
-                              textInput("new_column_name", "New Column Name"),  # Input for new column name
-                              actionButton("rename_column_btn", "Rename Column"),  # Button to rename column
-                              dateInput("navigate_date", "Navigate to Date"),  # Input to navigate to a specific date
-                              actionButton("go_to_date", "Go to Date"),  # Button to go to the specified date
-                              
-                              tags$h4("Rollback Changes"), # Rollback section
-                              actionButton("rollback_1", "Rollback to Last Change"),  # Button to rollback to last change
-                              actionButton("rollback_2", "Rollback to Second Last Change"),  # Button to rollback to second last change
-                              actionButton("rollback_3", "Rollback to Third Last Change")  # Button to rollback to third last change
-                            ),
-                            mainPanel(
-                              dataTableOutput("table")  # Output for displaying the data table
-                            )
-                          )
+ui <- navbarPage(
+  title = "Energy Meter Data Analysis",
+  theme = bs_theme(
+    version = 5,
+    bootswatch = "flatly",
+    primary = "#2C3E50",
+    secondary = "#18BC9C",
+    base_font = font_google("Open Sans"),
+    heading_font = font_google("Roboto Slab")
+  ),
+  
+  # --- Table Display Tab ---
+  tabPanel("Table Display",
+           sidebarLayout(
+             sidebarPanel(
+               accordion(
+                 open = c("Data Upload and Processing", "Holiday & Cleanup Tools"),
+                 accordion_panel("Data Upload and Processing",
+                               fileInput("file", "Upload Main Data File (.csv or .xlsx)", accept = c(".csv", ".xlsx")),
+                               checkboxInput("header", "Include Header Row", TRUE),
+                               uiOutput("datetime_column"),
+                               actionButton("clean_datetime", "Clean SkySpark Datetime"),
+                               fileInput("temperaturefile", "Upload Temperature File (Optional)", accept = c(".csv", ".xlsx"))
                  ),
-                 tabPanel("Plotting",
-                          sidebarLayout(
-                            sidebarPanel(
-                              uiOutput("x_axis_column"),  # UI output for selecting X-axis column
-                              uiOutput("y_axis_columns"),  # UI output for selecting Y-axis columns
-                              uiOutput("datetime_aggregation"),  # UI output for selecting datetime aggregation
-                              actionButton("plot_graph", "Plot Graph"),  # Button to plot the graph
-                              numericInput("y_axis_min", "Primary Y-Axis Min", value = NULL),  # Input for primary Y-axis minimum value
-                              numericInput("y_axis_max", "Primary Y-Axis Max", value = NULL),  # Input for primary Y-axis maximum value
-                              numericInput("y2_axis_min", "Secondary Y-Axis Min", value = NULL),  # Input for secondary Y-axis minimum value
-                              numericInput("y2_axis_max", "Secondary Y-Axis Max", value = NULL)  # Input for secondary Y-axis maximum value
-                            ),
-                            mainPanel(
-                              plotlyOutput("plot")  # Output for displaying the plot
-                            )
-                          )
+                 accordion_panel("Holiday & Cleanup Tools",
+                               actionButton("add_holidays", "Add UCSF Working Holidays"),
+                               numericInput("decimals", "Round Numbers To", value = 2, min = 0),
+                               actionButton("round_numeric", "Apply Rounding"),
+                               dateRangeInput("drop_date_range", "Drop Observations Between"),
+                               actionButton("drop_date_range_btn", "Remove Date Range")
                  ),
-                 tabPanel("Modeling",
-                          useShinyjs(),  # Initialize shinyjs
-                          sidebarLayout(
-                            sidebarPanel(
-                              checkboxInput("dr_analysis", "Is this a demand response analysis?", value = FALSE),
-                              uiOutput("date_selector"),
-                              uiOutput("dr_date_plotter_ui"),
-                              selectInput("regression_type", "Regression Type", choices = c("TOWT", "SLR", "Three Parameter Cooling", "Three Parameter Heating", "Four Parameter Linear Model", "Five Parameter Linear Model"), multiple = TRUE),
-                              uiOutput("y_var_ui"),  # UI output for y_var selection
-                              uiOutput("temp_var_ui"),  # UI output for temp_var selection
-                              uiOutput("time_var_ui"),  # UI output for time_var selection
-                              uiOutput("additional_vars_ui"),  # UI output for additional variables multiselect
-                              uiOutput("additional_var_agg_ui"),  # UI output for additional variable aggregation
-                              textInput("baseline_start", "Baseline Start", value = "01/01/2024 00:00"),
-                              textInput("baseline_end", "Baseline End", value = "12/31/2024 23:59"),
-                              textInput("performance_start", "Performance Start", value = "01/01/2025 00:00"),
-                              textInput("performance_end", "Performance End", value = "12/31/2025 23:59"),
-                              selectInput("convert_to_data_interval", "Convert to Data Interval", choices = c("Hourly", "Daily")),
-                              actionButton("toggle_advanced", "Show Advanced Options"),  # Button to toggle advanced options
-                              div(id = "advanced_options", style = "display: none;",  # Initially hidden div for advanced options
-                                  numericInput("timescale_days", "Timescale Days", value = NULL),
-                                  checkboxInput("has_temp_knots_defined", "Has Temp Knots Defined", FALSE),
-                                  checkboxInput("equal_temp_segment_points", "Equal Temp Segment Points", TRUE),
-                                  numericInput("temp_segments_numeric", "Temp Segments Numeric", value = 6),
-                                  textInput("temp_knots_value", "Temp Knots Value", value = "40, 55, 65, 80, 90"),
-                                  textInput("initial_breakpoints", "Initial Breakpoints", value = "50, 65"),
-                                  numericInput("occupancy_threshold", "Occupancy Threshold", value = 0.65),
-                                  checkboxInput("day_normalized", "Day Normalized", FALSE)
-                              ),
-                              actionButton("generate_inputs", "Generate Inputs"),  # Button to generate modeling inputs
-                              actionButton("run_model", "Run Model")  # Button to run the model
-                            ),
-                            mainPanel(
-                              verbatimTextOutput("modeling_inputs_output"),  # Output for displaying the modeling inputs
-                              dataTableOutput("model_stats_table"),  # Output for displaying the model stats table
-                              downloadButton("download_data", "Download Data as Excel"),  # Button to download data as Excel
-                              dateRangeInput("date_range", "Filter by Date Range", start = NULL, end = NULL),
-                              
-                              sliderInput("hour_range", "Hour of Day", min = 0, max = 23, value = c(0, 23), step = 1),
-                              
-                              selectInput("dow_filter", "Filter by Day(s) of Week",
-                                          choices = weekdays(ISOdate(2000,1,3:9)),  # Monday to Sunday
-                                          selected = weekdays(ISOdate(2000,1,3:9)), # All days selected by default
-                                          multiple = TRUE
-                              ),
-                              plotlyOutput("model_plot"),  # Output for displaying the plot
-                              uiOutput("totals"),
-                              plotlyOutput("baseline_performance_plot"),
-                              selectInput(
-                                inputId = "day_type_select",
-                                label = "Select Day Type",
-                                choices = c(
-                                  "Weekday",
-                                  "Weekend",
-                                  "Monday",
-                                  "Tuesday",
-                                  "Wednesday",
-                                  "Thursday",
-                                  "Friday",
-                                  "Saturday",
-                                  "Sunday"
-                                ),
-                                selected = "Weekday"
-                              ),
-                              plotlyOutput("load_profile_plot")
-                            )
-                          )
+                 accordion_panel("Column Operations",
+                               uiOutput("rename_column"),
+                               textInput("new_column_name", "New Column Name"),
+                               actionButton("rename_column_btn", "Rename Column")
+                 ),
+                 accordion_panel("Navigation",
+                               dateInput("navigate_date", "Jump to Date"),
+                               actionButton("go_to_date", "Go to Date")
+                 ),
+                 accordion_panel("Rollback",
+                               actionButton("rollback_1", "Undo Last Change"),
+                               actionButton("rollback_2", "Undo 2nd Last Change"),
+                               actionButton("rollback_3", "Undo 3rd Last Change")
                  )
+               )
+             ),
+             mainPanel(
+               withSpinner(dataTableOutput("table"))
+             )
+           )
+  ),
+  
+  # --- Plotting Tab ---
+  tabPanel("Plotting",
+           sidebarLayout(
+             sidebarPanel(
+               uiOutput("x_axis_column"),
+               uiOutput("y_axis_columns"),
+               uiOutput("datetime_aggregation"),
+               actionButton("plot_graph", "Generate Plot"),
+               tags$hr(),
+               numericInput("y_axis_min", "Primary Y-Axis Min", value = NULL),
+               numericInput("y_axis_max", "Primary Y-Axis Max", value = NULL),
+               numericInput("y2_axis_min", "Secondary Y-Axis Min", value = NULL),
+               numericInput("y2_axis_max", "Secondary Y-Axis Max", value = NULL)
+             ),
+             mainPanel(
+               withSpinner(plotlyOutput("plot"))
+             )
+           )
+  ),
+  
+  # --- Modeling Tab ---
+  tabPanel("Modeling",
+           useShinyjs(),
+           sidebarLayout(
+             sidebarPanel(
+               checkboxInput("dr_analysis", "Demand Response Analysis?", value = FALSE),
+               uiOutput("date_selector"),
+               uiOutput("dr_date_plotter_ui"),
+               selectInput("regression_type", "Regression Type", 
+                           choices = c("TOWT", "SLR", "Three Parameter Cooling", 
+                                       "Three Parameter Heating", "Four Parameter Linear Model", 
+                                       "Five Parameter Linear Model"), 
+                           multiple = TRUE),
+               uiOutput("y_var_ui"),
+               uiOutput("temp_var_ui"),
+               uiOutput("time_var_ui"),
+               uiOutput("additional_vars_ui"),
+               uiOutput("additional_var_agg_ui"),
+               textInput("baseline_start", "Baseline Start", value = "01/01/2024 00:00"),
+               textInput("baseline_end", "Baseline End", value = "12/31/2024 23:59"),
+               textInput("performance_start", "Performance Start", value = "01/01/2025 00:00"),
+               textInput("performance_end", "Performance End", value = "12/31/2025 23:59"),
+               selectInput("convert_to_data_interval", "Convert to Interval", choices = c("Hourly", "Daily")),
+               actionButton("toggle_advanced", "Show Advanced Options"),
+               div(id = "advanced_options", style = "display: none;",
+                   numericInput("timescale_days", "Timescale (Days)", value = NULL),
+                   checkboxInput("has_temp_knots_defined", "Use Custom Temp Knots?", FALSE),
+                   checkboxInput("equal_temp_segment_points", "Equal Temp Segments?", TRUE),
+                   numericInput("temp_segments_numeric", "Number of Temp Segments", value = 6),
+                   textInput("temp_knots_value", "Temp Knots (°F)", value = "40, 55, 65, 80, 90"),
+                   textInput("initial_breakpoints", "Initial Breakpoints", value = "50, 65"),
+                   numericInput("occupancy_threshold", "Occupancy Threshold", value = 0.65),
+                   checkboxInput("day_normalized", "Normalize by Day?", FALSE)
+               ),
+               tags$hr(),
+               # actionButton("generate_inputs", "Generate Inputs"),
+               actionButton("run_model", "Run Model")
+             ),
+             mainPanel(
+               # withSpinner(conditionalPanel(
+               #   condition = "input.generate_inputs > 0",
+               #   verbatimTextOutput("modeling_inputs_output")
+               # )),
+               withSpinner(dataTableOutput("model_stats_table")),
+               downloadButton("download_data", "Download as Excel"),
+               dateRangeInput("date_range", "Date Filter"),
+               sliderInput("hour_range", "Hour of Day", min = 0, max = 23, value = c(0, 23)),
+               selectInput("dow_filter", "Days of Week",
+                           choices = weekdays(ISOdate(2000,1,3:9)),
+                           selected = weekdays(ISOdate(2000,1,3:9)),
+                           multiple = TRUE),
+               withSpinner(plotlyOutput("model_plot")),
+               uiOutput("totals"),
+               withSpinner(plotlyOutput("baseline_performance_plot")),
+               selectInput("day_type_select", "Select Day Type",
+                           choices = c("Weekday", "Weekend", "Monday", "Tuesday", 
+                                       "Wednesday", "Thursday", "Friday", 
+                                       "Saturday", "Sunday"),
+                           selected = "Weekday"),
+               withSpinner(plotlyOutput("load_profile_plot"))
+             )
+           )
+  )
 )
 # Define the server logic
 server = function(input, output, session) {
@@ -174,13 +193,19 @@ server = function(input, output, session) {
   observeEvent(input$temperaturefile, {
     req(data())
     req(input$datetime_col)
-    ext = tools::file_ext(input$temperaturefile$name)
-    df_temperature = switch(ext,
-                            csv = read_csv(input$temperaturefile$datapath, col_names = input$header),
-                            xlsx = read_excel(input$temperaturefile$datapath, col_names = input$header),
-                            stop("Invalid file type")
+    ext <- tools::file_ext(input$temperaturefile$name)
+    col_names_flag <- isTRUE(input$header)
+    print(paste("input$header is:", input$header))
+    df_temperature <- switch(ext,
+                             csv = readr::read_csv(input$temperaturefile$datapath, col_names = col_names_flag),
+                             xlsx = readxl::read_excel(input$temperaturefile$datapath, col_names = col_names_flag),
+                             stop("Invalid file type")
     )
+    # Uploaded temperature
+    print("uploaded temp")
     df = data()
+    print("got main df")
+    
     # Perform inner join using dynamic column name
     
     merged_df <- tryCatch(
@@ -533,12 +558,12 @@ observeEvent(input$additional_vars, {
   })
   
   # Observe the generate inputs button and display modeling inputs
-  observeEvent(input$generate_inputs, {
-    modeling_inputs = get_modeling_inputs()
-    output$modeling_inputs_output = renderPrint({
-      modeling_inputs
-    })
-  })
+  # observeEvent(input$generate_inputs, {
+  #   modeling_inputs = get_modeling_inputs()
+  #   output$modeling_inputs_output = renderPrint({
+  #     modeling_inputs
+  #   })
+  # })
   
   # Observe the run model button and display model output
   observeEvent(input$run_model, {
