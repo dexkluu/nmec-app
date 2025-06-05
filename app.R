@@ -206,7 +206,7 @@ server = function(input, output, session) {
     # Perform inner join using dynamic column name
     merged_df = tryCatch(
       {
-        inner_join(
+        left_join(
           df,
           df_temperature,
           by = setNames("Timestamp", input$datetime_col)
