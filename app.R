@@ -214,7 +214,7 @@ server = function(input, output, session) {
       },
       error = function(e) {
         message("First join failed, trying with 'time' instead of 'Timestamp'")
-        inner_join(
+        left_join(
           df,
           df_temperature,
           by = setNames("time", input$datetime_col)
@@ -610,8 +610,6 @@ observeEvent(input$additional_vars, {
     bp$period = "Baseline"
     pp$period = "Performance"
     combined_periods = bind_rows(bp, pp)
-    print(bp)
-    print(pp)
     y_var_sym = sym(input$y_var)
     df_react = reactive({
       if (input$dr_date_plotter=="Any"){
