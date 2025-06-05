@@ -18,7 +18,7 @@ library(shinyjs)
 source("helper.R")
 
 # Define the UI of the application
-ui <- navbarPage(
+ui = navbarPage(
   title = "Energy Meter Data Analysis",
   theme = bs_theme(
     version = 5,
@@ -193,22 +193,18 @@ server = function(input, output, session) {
   observeEvent(input$temperaturefile, {
     req(data())
     req(input$datetime_col)
-    ext <- tools::file_ext(input$temperaturefile$name)
-    col_names_flag <- isTRUE(input$header)
-    print(paste("input$header is:", input$header))
-    df_temperature <- switch(ext,
+    ext = tools::file_ext(input$temperaturefile$name)
+    col_names_flag = isTRUE(input$header)
+    df_temperature = switch(ext,
                              csv = readr::read_csv(input$temperaturefile$datapath, col_names = col_names_flag),
                              xlsx = readxl::read_excel(input$temperaturefile$datapath, col_names = col_names_flag),
                              stop("Invalid file type")
     )
     # Uploaded temperature
-    print("uploaded temp")
     df = data()
-    print("got main df")
     
     # Perform inner join using dynamic column name
-    
-    merged_df <- tryCatch(
+    merged_df = tryCatch(
       {
         inner_join(
           df,
@@ -636,35 +632,35 @@ observeEvent(input$additional_vars, {
     
     observe({
       req(performance_predictions)
-      min_date <- min(as.Date(performance_predictions[[input$time_var]]), na.rm = TRUE)
-      max_date <- max(as.Date(performance_predictions[[input$time_var]]), na.rm = TRUE)
+      min_date = min(as.Date(performance_predictions[[input$time_var]]), na.rm = TRUE)
+      max_date = max(as.Date(performance_predictions[[input$time_var]]), na.rm = TRUE)
       updateDateRangeInput(session, "date_range", start = min_date, end = max_date)
     })
     
-    filtered_predictions <- reactive({
-      df <- performance_predictions
+    filtered_predictions = reactive({
+      df = performance_predictions
       req(input$time_var, input$y_var)
       
-      df$date <- as.Date(df[[input$time_var]])
-      df$hour <- lubridate::hour(df[[input$time_var]])
-      df$dow <- weekdays(df$date)
+      df$date = as.Date(df[[input$time_var]])
+      df$hour = lubridate::hour(df[[input$time_var]])
+      df$dow = weekdays(df$date)
       
       if (!is.null(input$date_range)) {
-        df <- df[df$date >= input$date_range[1] & df$date <= input$date_range[2], ]
+        df = df[df$date >= input$date_range[1] & df$date <= input$date_range[2], ]
       }
       
-      df <- df[df$hour >= input$hour_range[1] & df$hour <= input$hour_range[2], ]
+      df = df[df$hour >= input$hour_range[1] & df$hour <= input$hour_range[2], ]
       
       # Handle multiple selected days or "All"
       if (!("All" %in% input$dow_filter)) {
-        df <- df[df$dow %in% input$dow_filter, ]
+        df = df[df$dow %in% input$dow_filter, ]
       }
       
       return(df)
     })
     
     output$model_plot = renderPlotly({
-      df_plot <- if (input$dr_analysis) df_react() else filtered_predictions()
+      df_plot = if (input$dr_analysis) df_react() else filtered_predictions()
       
       min_val = floor(min(df_plot[[input$y_var]], df_plot$predictions, na.rm = TRUE))
       max_val = ceiling(max(df_plot[[input$y_var]], df_plot$predictions, na.rm = TRUE))
@@ -684,10 +680,10 @@ observeEvent(input$additional_vars, {
     })
     
     output$baseline_performance_plot = renderPlotly({
-      df <- combined_periods
+      df = combined_periods
       
       # Get the actual y-variable name and time variable name
-      y_var <- input$y_var
+      y_var = input$y_var
       time_var = input$time_var
       
       # Calculate y-axis range from both selected y-variable and predictions
@@ -714,14 +710,14 @@ observeEvent(input$additional_vars, {
         )
     })
     
-    output$load_profile_plot <- renderPlotly({
-      df <- combined_periods
+    output$load_profile_plot = renderPlotly({
+      df = combined_periods
       
-      y_var <- input$y_var
-      time_var <- input$time_var
-      selected_day <- input$day_type_select
+      y_var = input$y_var
+      time_var = input$time_var
+      selected_day = input$day_type_select
       
-      df <- df %>%
+      df = df %>%
         mutate(
           hour = lubridate::hour(.data[[time_var]]),
           wday = lubridate::wday(.data[[time_var]], label = TRUE, abbr = FALSE),
@@ -733,31 +729,31 @@ observeEvent(input$additional_vars, {
         )
       
       # Filter based on dropdown selection
-      df_filtered <- if (selected_day %in% c("Weekday", "Weekend")) {
+      df_filtered = if (selected_day %in% c("Weekday", "Weekend")) {
         df %>% filter(day_type == selected_day)
       } else {
         df %>% filter(wday == selected_day)
       }
       
-      summary_df <- df_filtered %>%
+      summary_df = df_filtered %>%
         group_by(hour, period) %>%
         summarise(
-          elec = mean(elec, na.rm = TRUE),
+          elec = mean(input$y_var, na.rm = TRUE),
           predictions = mean(predictions, na.rm = TRUE),
           .groups = "drop"
         )
       
-      color_map <- c("Performance" = "orange", "Baseline" = "blue")
+      color_map = c("Performance" = "orange", "Baseline" = "blue")
       
-      p <- plot_ly()
+      p = plot_ly()
       
       for (period_val in unique(summary_df$period)) {
-        data_subset <- summary_df %>% filter(period == period_val)
+        data_subset = summary_df %>% filter(period == period_val)
         
-        color <- color_map[[period_val]]
-        if (is.na(color)) color <- "gray"
+        color = color_map[[period_val]]
+        if (is.na(color)) color = "gray"
         
-        p <- p %>%
+        p = p %>%
           add_lines(
             data = data_subset,
             x = ~hour,
