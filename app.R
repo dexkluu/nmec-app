@@ -47,7 +47,8 @@ ui = navbarPage(
                                numericInput("decimals", "Round Numbers To", value = 2, min = 0),
                                actionButton("round_numeric", "Apply Rounding"),
                                dateRangeInput("drop_date_range", "Drop Observations Between"),
-                               actionButton("drop_date_range_btn", "Remove Date Range")
+                               actionButton("drop_date_range_btn", "Remove Date Range"),
+                               uiOutput("cols_for_outlier_cleaning")
                  ),
                  accordion_panel("Column Operations",
                                uiOutput("rename_column"),
@@ -309,6 +310,37 @@ server = function(input, output, session) {
     df = df %>% filter(!(as.Date(df[[input$datetime_col]]) >= input$drop_date_range[1] & as.Date(df[[input$datetime_col]]) <= input$drop_date_range[2]))
     data(df)
     update_table(df)  # Update the table with dropped date range
+  })
+  
+  # Columns to drop outliers
+  output$cols_for_outlier_cleaning = renderUI({
+    req(data())
+    df = data()
+    num_cols = sapply(df, is.numeric)
+    tagList(
+      selectInput("outlier_columns", "Select Columns to Omit Outliers", 
+                  choices = names(df[num_cols]), multiple = TRUE),
+      numericInput("sd_threshold", "Standard Deviations from Mean", value = 3, min = 0.1, step = 0.1),
+      actionButton("apply_outlier_filter", "Remove Outliers")
+    )
+  })
+  
+  # Observe event to execute outlier filter
+  observeEvent(input$apply_outlier_filter, {
+    req(data(), input$outlier_columns, input$sd_threshold)
+    
+    df <- data()
+    cols <- input$outlier_columns
+    sd_thresh <- input$sd_threshold
+    
+    for (col in cols) {
+      mu <- mean(df[[col]], na.rm = TRUE)
+      sigma <- sd(df[[col]], na.rm = TRUE)
+      df <- df[abs(df[[col]] - mu) <= sd_thresh * sigma | is.na(df[[col]]), ]
+    }
+    
+    data(df)
+    update_table(df)
   })
   
   # Observe the round numeric button and round numeric columns
